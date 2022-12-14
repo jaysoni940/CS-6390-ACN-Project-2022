@@ -19,61 +19,61 @@
 
 using namespace std;
 
-#define NUMNODES 10
+#define TOTAL_NODES 10
 
-struct FileDescriptor
+struct FileStructure
 {
     // Store the name of the file
-    string inputFileName;
-    string outputFileName;
+    string input_file_name;
+    string output_file_name;
 
     // File Descriptors
     fstream input;
     ofstream output;
 };
 
-class NodeRecord
+class NodeDetails
 {
 public:
-    NodeRecord(){};
-    ~NodeRecord(){};
+    NodeDetails(){};
+    ~NodeDetails(){};
 
     // Total number of nodes
-    size_t numNodes = 0;
+    size_t total_no_of_nodes = 0;
 
     // Channels of Controller
-    FileDescriptor *channels;
+    FileStructure *streams;
 
     // Topology Links
-    int topologyLinks[NUMNODES][NUMNODES] = {{0}};
+    int network_links[TOTAL_NODES][TOTAL_NODES] = {{0}};
 
     // Counter to check if the node is not responding
-    int nodeNotResponding[NUMNODES] = {0};
+    int node_no_response[TOTAL_NODES] = {0};
 
-    // Create the channels
-    void createChannels();
+    // Create the streams
+    void createStreaams();
 };
 
-void NodeRecord::createChannels()
+void NodeDetails::createStreaams()
 {
-    channels = new FileDescriptor[numNodes];
+    streams = new FileStructure[total_no_of_nodes];
 
-    for (size_t i = 0; i < numNodes; i++)
+    for (size_t i = 0; i < total_no_of_nodes; i++)
     {
         // Give a name to the files
-        channels[i].inputFileName = string("output_") + char('0' + i);
-        channels[i].outputFileName = string("input_") + char('0' + i);
+        streams[i].input_file_name = string("output_") + char('0' + i);
+        streams[i].output_file_name = string("input_") + char('0' + i);
 
         // Create the files
-        channels[i].input.open(channels[i].inputFileName.c_str(), ios::in);
-        channels[i].output.open(channels[i].outputFileName.c_str(), ios::out | ios::app);
+        streams[i].input.open(streams[i].input_file_name.c_str(), ios::in);
+        streams[i].output.open(streams[i].output_file_name.c_str(), ios::out | ios::app);
 
-        if (channels[i].input.fail())
+        if (streams[i].input.fail())
         {
             cout << "Controller: Node " << i << " No input file" << endl;
             exit(1);
         }
-        if (channels[i].output.fail())
+        if (streams[i].output.fail())
         {
             cout << "Controller: Node " << i << " No output file" << endl;
             exit(1);
@@ -84,31 +84,31 @@ void NodeRecord::createChannels()
 class Controller
 {
 public:
-    Controller(size_t duration) : duration(duration)
+    Controller(size_t time_interval) : time_interval(time_interval)
     {
-        setChannel(); // topology
-        createNodeChannels(); // Node channels
+        setStream(); // topology
+        createNodeStream(); // Node streams
     };
     ~Controller(){};
 
     // Duration
-    size_t duration;
+    size_t time_interval;
 
     // beta function
-    void sendToNeighborsData();
+    void sendDataToNeighbors();
 
 private:
     // Channels of Controller
-    FileDescriptor channel;
+    FileStructure stream;
 
     // Node Record Entries
-    NodeRecord nodes;
+    NodeDetails node_instance;
 
     // Init Channels
-    void setChannel();
+    void setStream();
 
     //Create New Channels
-    void createNodeChannels();
+    void createNodeStream();
 
     //Parse the strings
     void parseString(string);
@@ -117,45 +117,45 @@ private:
     string readFile(fstream &);
 };
 
-void Controller::parseString(string line) //Waring: Single Sequencial Digit Parser only!!
+void Controller::parseString(string line_number) //Waring: Single Sequencial Digit Parser only!!
 {
     // Store the characters
-    char c1 = line[0];
-    char c2 = line[2];
+    char c1 = line_number[0];
+    char c2 = line_number[2];
 
-    if (unsigned(c1 - '0') + 1 > nodes.numNodes || unsigned(c2 - '0') + 1 > nodes.numNodes)
+    if (unsigned(c1 - '0') + 1 > node_instance.total_no_of_nodes || unsigned(c2 - '0') + 1 > node_instance.total_no_of_nodes)
     {
         if ((c1 - '0') > (c2 - '0'))
-            nodes.numNodes = c1 - '0' + 1;
+            node_instance.total_no_of_nodes = c1 - '0' + 1;
         else
-            nodes.numNodes = c2 - '0' + 1;
+            node_instance.total_no_of_nodes = c2 - '0' + 1;
     }
 
-    nodes.topologyLinks[unsigned(c1 - '0')][unsigned(c2 - '0')] = 1;
+    node_instance.network_links[unsigned(c1 - '0')][unsigned(c2 - '0')] = 1;
 }
 
-void Controller::createNodeChannels()
+void Controller::createNodeStream()
 {
     // Check and Parse the topology file
-    string line;
-    while (getline(channel.input, line) && !channel.input.eof())
+    string line_number;
+    while (getline(stream.input, line_number) && !stream.input.eof())
     {
-        parseString(line);
+        parseString(line_number);
     }
 
     // Create the Channels
-    nodes.createChannels();
+    node_instance.createStreaams();
 }
 
-void Controller::setChannel()
+void Controller::setStream()
 {
     // Store the name of the file to open
-    channel.inputFileName = string("topology");
-    channel.outputFileName = "";
+    stream.input_file_name = string("topology");
+    stream.output_file_name = "";
 
     // Open the file as input
-    channel.input.open(channel.inputFileName.c_str(), ios::in);
-    if (channel.input.fail())
+    stream.input.open(stream.input_file_name.c_str(), ios::in);
+    if (stream.input.fail())
     {
         cout << "No file";
         exit(1);
@@ -164,34 +164,34 @@ void Controller::setChannel()
 
 string Controller::readFile(fstream &fd)
 {
-    string line = "";
-    getline(fd, line);
+    string line_number = "";
+    getline(fd, line_number);
     if (fd.eof())
     {
         fd.clear();
-        line = "";
+        line_number = "";
     }
     
-    return line;
+    return line_number;
 }
 
-void Controller::sendToNeighborsData()
+void Controller::sendDataToNeighbors()
 {
     // Search through the topology links to find the neighbors
-    for (size_t i = 0; i < nodes.numNodes; i++)
+    for (size_t i = 0; i < node_instance.total_no_of_nodes; i++)
     {
         // Read the output file of the node for the hello message
-        string line = "";
-        while((line = readFile(nodes.channels[i].input)) != "")
+        string line_number = "";
+        while((line_number = readFile(node_instance.streams[i].input)) != "")
         {
-            // Go through all the links of that particular nodes
-            for (size_t j = 0; j < nodes.numNodes; j++)
+            // Go through all the links of that particular node_instance
+            for (size_t j = 0; j < node_instance.total_no_of_nodes; j++)
             {
-                // If the link exist then put the message of that nodes input file
-                if (nodes.topologyLinks[i][j])
+                // If the link exist then put the message of that node_instance input file
+                if (node_instance.network_links[i][j])
                 {
-                    nodes.channels[j].output << line << endl;
-                    nodes.channels[j].output.flush(); //force
+                    node_instance.streams[j].output << line_number << endl;
+                    node_instance.streams[j].output.flush(); //force
                 }
             }
         }
@@ -220,9 +220,9 @@ int main(int argc, char *argv[])
     Controller controller(arg);
 
     // Start the algo
-    for (size_t i = 0; i < controller.duration; i++)
+    for (size_t i = 0; i < controller.time_interval; i++)
     {
-        controller.sendToNeighborsData();
+        controller.sendDataToNeighbors();
         sleep(1);
     }
     cout << "Controller Done" << endl;
