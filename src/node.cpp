@@ -11,10 +11,10 @@ using namespace std;
 struct InitialFileView
 {
     string inside_file_view;
-    fstream input;
     string outside_file_view;
-    ofstream output;
     string got_file_view;
+    fstream input;
+    ofstream output;
     ofstream got_view;
 };
 
@@ -34,16 +34,14 @@ struct Queue
 void Queue::queue_insert(int val)
 {
     pointer_to_array[queue_last] = val;
-    int var2 = queue_last + 1;
-    queue_last = var2 % capacity;
+    queue_last = (queue_last + 1) % capacity;
     no_of_elements++;
 }
 
 int Queue::queue_remove()
 {
     int var1 = pointer_to_array[queue_first];
-    int var3 = queue_first + 1;
-    queue_first = var3 % capacity;
+    queue_first = (queue_first + 1) % capacity;
     no_of_elements--;
     return var1;
 }
@@ -85,24 +83,24 @@ struct PathFinder
     int final_loc;
     string destination_path = "";
     string data_value;
-    bool send_in_tree_current = false;
-    int in_tree[N][N];
     string send_data_to_neighbors[N][N];
     int peers_in[N];
+    int in_tree[N][N];
     int previous_in_tree[N][N];
+    bool send_in_tree_current = false;
     string peers_in_route[N];
-    void addHeight(size_t, size_t, int (&)[N][N], nodeHeight (&)[N]);
-    void breadthFirstSearcht(size_t, size_t, int (&)[N][N], nodeHeight (&)[N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N], nodeHeight (&)[N]));
+    bool isINnull();
     void storeInPeerRoute(size_t, size_t, int (&)[N][N]);
-    void breadthFirstSearcht(size_t, size_t, int (&)[N][N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N]));
     void buildSPT(size_t, size_t, int (&)[N][N]);
+    void breadthFirstSearcht(size_t, size_t, int (&)[N][N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N]));
+    void breadthFirstSearcht(size_t, size_t, int (&)[N][N], nodeHeight (&)[N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N], nodeHeight (&)[N]));
+    void breadthFirstSearchi(size_t, size_t, int (&)[N][N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N]));
     void breadthFirstSearchi(size_t, size_t, int (&)[N][N], nodeHeight (&)[N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N], nodeHeight (&)[N]));
     void deleteTempTreeRoute(size_t, size_t, int (&)[N][N]);
     void deleteInTreeRoute(size_t, size_t, int (&)[N][N]);
-    void breadthFirstSearchi(size_t, size_t, int (&)[N][N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N]));
-    void deleteHeight(size_t, size_t, int (&)[N][N], nodeHeight (&)[N]);
-    bool isINnull();
     void cutNode(size_t, size_t, int (&)[N][N]);
+    void addHeight(size_t, size_t, int (&)[N][N], nodeHeight (&)[N]);
+    void deleteHeight(size_t, size_t, int (&)[N][N], nodeHeight (&)[N]);
 };
 
 bool PathFinder::isINnull()
@@ -112,13 +110,11 @@ bool PathFinder::isINnull()
         if (peers_in[i])
             return false;
     }
-
     return true;
 }
 
 void PathFinder::storeInPeerRoute(size_t v, size_t root, int (&varInTree)[N][N])
 {
-
     peers_in_route[root] = peers_in_route[root] + to_string(v) + " ";
 
     for (size_t w = 0; w < N; w++)
@@ -126,141 +122,6 @@ void PathFinder::storeInPeerRoute(size_t v, size_t root, int (&varInTree)[N][N])
         if (varInTree[v][w])
         {
             storeInPeerRoute(w, root, varInTree);
-        }
-    }
-}
-
-void PathFinder::deleteTempTreeRoute(size_t w, size_t v, int (&var1InTree)[N][N])
-{
-    var1InTree[w][v] = 0;
-}
-
-void PathFinder::deleteInTreeRoute(size_t w, size_t v, int (&var1InTree)[N][N])
-{
-    in_tree[w][v] = 0;
-}
-
-void PathFinder::cutNode(size_t w, size_t v, int (&var1InTree)[N][N])
-{
-    if (!var1InTree[w][v])
-    {
-        in_tree[w][v] = 0;
-    }
-}
-
-void PathFinder::addHeight(size_t w, size_t v, int (&var1InTree)[N][N], nodeHeight (&heights)[N])
-{
-    heights[w].height = heights[v].height + 1;
-    heights[w].final_loc = v;
-}
-
-void PathFinder::deleteHeight(size_t w, size_t v, int (&var1InTree)[N][N], nodeHeight (&heights)[N])
-{
-    var1InTree[w][v] = 0;
-    heights[w].height = -1;
-    heights[w].final_loc = -1;
-}
-
-void PathFinder::breadthFirstSearcht(size_t node_id, size_t root, int (&var1InTree)[N][N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N]))
-{
-
-    Queue graph_queue(N);
-    bool visited[N] = {false};
-    graph_queue.queue_insert(node_id);
-    visited[node_id] = true;
-    while (!graph_queue.queue_null())
-    {
-
-        int x = graph_queue.queue_remove();
-
-        for (int y = 0; y < N; y++)
-        {
-            if (var1InTree[y][x])
-            {
-                if (!visited[y])
-                {
-                    visited[y] = 1;
-                    (this->*func)(y, x, var1InTree);
-                    graph_queue.queue_insert(y);
-                }
-            }
-        }
-    }
-}
-
-void PathFinder::breadthFirstSearcht(size_t node_id, size_t root, int (&var1InTree)[N][N], nodeHeight (&heights)[N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N], nodeHeight (&)[N]))
-{
-
-    heights[node_id].height = 0;
-    heights[node_id].final_loc = -1;
-    Queue graph_queue(N);
-    bool visited[N] = {false};
-    graph_queue.queue_insert(node_id);
-    visited[node_id] = true;
-    while (!graph_queue.queue_null())
-    {
-        int v = graph_queue.queue_remove();
-        for (int w = 0; w < N; w++)
-        {
-            if (var1InTree[w][v])
-            {
-                if (!visited[w])
-                {
-                    visited[w] = 1;
-                    (this->*func)(w, v, var1InTree, heights);
-                    graph_queue.queue_insert(w);
-                }
-            }
-        }
-    }
-}
-
-void PathFinder::breadthFirstSearchi(size_t node_id, size_t root, int (&var1InTree)[N][N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N]))
-{
-    Queue graph_queue(N);
-    bool visited[N] = {false};
-    graph_queue.queue_insert(root);
-    visited[root] = true;
-    while (!graph_queue.queue_null())
-    {
-        int v = graph_queue.queue_remove();
-        for (int w = 0; w < N; w++)
-        {
-            if (in_tree[w][v])
-            {
-                if (!visited[w])
-                {
-                    visited[w] = 1;
-                    (this->*func)(w, v, var1InTree);
-                    graph_queue.queue_insert(w);
-                }
-            }
-        }
-    }
-}
-
-void PathFinder::breadthFirstSearchi(size_t node_id, size_t root, int (&var1InTree)[N][N], nodeHeight (&heights)[N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N], nodeHeight (&)[N]))
-{
-    heights[root].height = 0;
-    heights[root].final_loc = -1;
-    Queue graph_queue(N);
-    bool visited[N] = {false};
-    graph_queue.queue_insert(root);
-    visited[root] = true;
-    while (!graph_queue.queue_null())
-    {
-        int v = graph_queue.queue_remove();
-        for (int w = 0; w < N; w++)
-        {
-            if (in_tree[w][v])
-            {
-                if (!visited[w])
-                {
-                    visited[w] = 1;
-                    (this->*func)(w, v, var1InTree, heights);
-                    graph_queue.queue_insert(w);
-                }
-            }
         }
     }
 }
@@ -376,6 +237,142 @@ void PathFinder::buildSPT(size_t node_id, size_t root, int (&var1InTree)[N][N])
     }
 }
 
+void PathFinder::breadthFirstSearcht(size_t node_id, size_t root, int (&var1InTree)[N][N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N]))
+{
+
+    Queue graph_queue(N);
+    bool visited[N] = {false};
+    graph_queue.queue_insert(node_id);
+    visited[node_id] = true;
+    while (!graph_queue.queue_null())
+    {
+
+        int v = graph_queue.queue_remove();
+
+        for (int w = 0; w < N; w++)
+        {
+            if (var1InTree[w][v])
+            {
+                if (!visited[w])
+                {
+                    visited[w] = 1;
+                    (this->*func)(w, v, var1InTree);
+                    graph_queue.queue_insert(w);
+                }
+            }
+        }
+    }
+}
+
+void PathFinder::breadthFirstSearcht(size_t node_id, size_t root, int (&var1InTree)[N][N], nodeHeight (&heights)[N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N], nodeHeight (&)[N]))
+{
+
+    heights[node_id].height = 0;
+    heights[node_id].final_loc = -1;
+    Queue graph_queue(N);
+    bool visited[N] = {false};
+    graph_queue.queue_insert(node_id);
+    visited[node_id] = true;
+    while (!graph_queue.queue_null())
+    {
+        int v = graph_queue.queue_remove();
+        for (int w = 0; w < N; w++)
+        {
+            if (var1InTree[w][v])
+            {
+                if (!visited[w])
+                {
+                    visited[w] = 1;
+                    (this->*func)(w, v, var1InTree, heights);
+                    graph_queue.queue_insert(w);
+                }
+            }
+        }
+    }
+}
+
+void PathFinder::breadthFirstSearchi(size_t node_id, size_t root, int (&var1InTree)[N][N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N]))
+{
+    Queue graph_queue(N);
+    bool visited[N] = {false};
+    graph_queue.queue_insert(root);
+    visited[root] = true;
+    while (!graph_queue.queue_null())
+    {
+        int v = graph_queue.queue_remove();
+        for (int w = 0; w < N; w++)
+        {
+            if (in_tree[w][v])
+            {
+                if (!visited[w])
+                {
+                    visited[w] = 1;
+                    (this->*func)(w, v, var1InTree);
+                    graph_queue.queue_insert(w);
+                }
+            }
+        }
+    }
+}
+
+void PathFinder::breadthFirstSearchi(size_t node_id, size_t root, int (&var1InTree)[N][N], nodeHeight (&heights)[N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N], nodeHeight (&)[N]))
+{
+    heights[root].height = 0;
+    heights[root].final_loc = -1;
+    Queue graph_queue(N);
+    bool visited[N] = {false};
+    graph_queue.queue_insert(root);
+    visited[root] = true;
+    while (!graph_queue.queue_null())
+    {
+        int v = graph_queue.queue_remove();
+        for (int w = 0; w < N; w++)
+        {
+            if (in_tree[w][v])
+            {
+                if (!visited[w])
+                {
+                    visited[w] = 1;
+                    (this->*func)(w, v, var1InTree, heights);
+                    graph_queue.queue_insert(w);
+                }
+            }
+        }
+    }
+}
+
+void PathFinder::deleteTempTreeRoute(size_t w, size_t v, int (&var1InTree)[N][N])
+{
+    var1InTree[w][v] = 0;
+}
+
+void PathFinder::deleteInTreeRoute(size_t w, size_t v, int (&var1InTree)[N][N])
+{
+    in_tree[w][v] = 0;
+}
+
+void PathFinder::cutNode(size_t w, size_t v, int (&var1InTree)[N][N])
+{
+    if (!var1InTree[w][v])
+    {
+        in_tree[w][v] = 0;
+    }
+}
+
+void PathFinder::addHeight(size_t w, size_t v, int (&var1InTree)[N][N], nodeHeight (&heights)[N])
+{
+    heights[w].height = heights[v].height + 1;
+    heights[w].final_loc = v;
+}
+
+void PathFinder::deleteHeight(size_t w, size_t v, int (&var1InTree)[N][N], nodeHeight (&heights)[N])
+{
+    var1InTree[w][v] = 0;
+    heights[w].height = -1;
+    heights[w].final_loc = -1;
+}
+
+
 class Node
 {
 public:
@@ -412,9 +409,9 @@ Node::~Node()
 
 void Node::setStreams()
 {
-    stream.inside_file_view = string("input_file_") + char('0' + node_id);
-    stream.outside_file_view = string("output_file_") + char('0' + node_id);
-    stream.got_file_view = char('0' + node_id) + string("_received_file");
+    stream.inside_file_view = string("input_") + char('0' + node_id);
+    stream.outside_file_view = string("output_") + char('0' + node_id);
+    stream.got_file_view = char('0' + node_id) + string("_received");
     stream.input.open(stream.inside_file_view.c_str(), ios::out);
     stream.input.close();
     stream.input.open(stream.inside_file_view.c_str(), ios::in);
@@ -479,7 +476,7 @@ void Node::intreeFunc()
                 {
                     visCur[w] = 1;
                     qCurNode.queue_insert(w);
-                    buffer = buffer + " (" + to_string(w) + " " + to_string(v) + ") ";
+                    buffer = buffer + "(" + to_string(w) + " " + to_string(v) + ")";
                 }
             }
         }

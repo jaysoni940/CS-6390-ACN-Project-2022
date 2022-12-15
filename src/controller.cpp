@@ -33,8 +33,8 @@ void NodeDetail::setStreams()
     streams = new InitialFileView[nn];
     for (size_t i = 0; i < nn; i++)
     {
-        streams[i].inside_file_view = string("output_file_") + char('0' + i);
-        streams[i].outside_file_view = string("input_file_") + char('0' + i);
+        streams[i].inside_file_view = string("output_") + char('0' + i);
+        streams[i].outside_file_view = string("input_") + char('0' + i);
         streams[i].input.open(streams[i].inside_file_view.c_str(), ios::in);
         streams[i].output.open(streams[i].outside_file_view.c_str(), ios::out | ios::app);
         if (streams[i].input.fail())
@@ -55,53 +55,53 @@ class Controller
 public:
     Controller(size_t time_interval) : time_interval(time_interval)
     {
-        setChannel();
-        createNodeChannels();
+        createStream();
+        setNodeStreams();
     };
     ~Controller(){};
-    size_t duration;
-    void sendToNeighborsData();
+    size_t time_interval;
+    void sendToPeers();
 
 private:
-    InitialFileView channel;
+    InitialFileView stream;
     NodeDetail nodes;
-    void setChannel();
-    void createNodeChannels();
+    void createStream();
+    void setNodeStreams();
     void parseString(string);
     string readFile(fstream &);
 };
 
-void Controller::parseString(string line)
+void Controller::parseString(string line_number)
 {
-    char c1 = line[0];
-    char c2 = line[2];
+    char char1 = line_number[0];
+    char char2 = line_number[2];
 
-    if (unsigned(c1 - '0') + 1 > nodes.nn || unsigned(c2 - '0') + 1 > nodes.nn)
+    if (unsigned(char1 - '0') + 1 > nodes.nn || unsigned(char2 - '0') + 1 > nodes.nn)
     {
-        if ((c1 - '0') > (c2 - '0'))
-            nodes.nn = c1 - '0' + 1;
+        if ((char1 - '0') > (char2 - '0'))
+            nodes.nn = char1 - '0' + 1;
         else
-            nodes.nn = c2 - '0' + 1;
+            nodes.nn = char2 - '0' + 1;
     }
-    nodes.network_links[unsigned(c1 - '0')][unsigned(c2 - '0')] = 1;
+    nodes.network_links[unsigned(char1 - '0')][unsigned(char2 - '0')] = 1;
 }
 
-void Controller::createNodeStream()
+void Controller::setNodeStreams()
 {
-    string line;
-    while (getline(channel.input, line) && !channel.input.eof())
+    string line_number;
+    while (getline(stream.input, line_number) && !stream.input.eof())
     {
         parseString(line_number);
     }
     nodes.setStreams();
 }
 
-void Controller::setStream()
+void Controller::createStream()
 {
-    channel.inside_file_view = string("topology");
-    channel.outside_file_view = "";
-    channel.input.open(channel.inside_file_view.c_str(), ios::in);
-    if (channel.input.fail())
+    stream.inside_file_view = string("topology");
+    stream.outside_file_view = "";
+    stream.input.open(stream.inside_file_view.c_str(), ios::in);
+    if (stream.input.fail())
     {
         cout << "NO FILE FOUND";
         exit(1);
@@ -118,21 +118,21 @@ string Controller::readFile(fstream &fd)
         line_number = "";
     }
 
-    return line;
+    return line_number;
 }
 
-void Controller::sendDataToNeighbors()
+void Controller::sendToPeers()
 {
     for (size_t i = 0; i < nodes.nn; i++)
     {
-        string line = "";
-        while ((line = readFile(nodes.streams[i].input)) != "")
+        string line_number = "";
+        while ((line_number = readFile(nodes.streams[i].input)) != "")
         {
             for (size_t j = 0; j < nodes.nn; j++)
             {
                 if (nodes.network_links[i][j])
                 {
-                    nodes.streams[j].output << line << endl;
+                    nodes.streams[j].output << line_number << endl;
                     nodes.streams[j].output.flush();
                 }
             }
@@ -152,9 +152,9 @@ int main(int argc, char *argv[])
     sleep(1);
     cout << endl;
     Controller controller(arg);
-    for (size_t i = 0; i < controller.duration; i++)
+    for (size_t i = 0; i < controller.time_interval; i++)
     {
-        controller.sendDataToNeighbors();
+        controller.sendToPeers();
         sleep(1);
     }
     cout << "CONTROLLER SUCCESS" << endl;

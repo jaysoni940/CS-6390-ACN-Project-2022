@@ -1,5 +1,7 @@
 clear
-echo -e "INITIATING SCENARIO 3 ...[ NODE 4 will get DESTROYED :/ ]"
+echo -e "INITIATING SCENARIO 4 ...[ NODE 4 will get DESTROYED :/ ]"
+
+
 rm -rf bin
 rm -rf scenario4
 mkdir -p scenario4

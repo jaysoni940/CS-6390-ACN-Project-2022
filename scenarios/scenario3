@@ -1,5 +1,7 @@
 clear
 echo -e "INITIATING SCENARIO 3 ... wait for some time to finish!"
+
+
 rm -rf bin
 rm -rf scenario3
 mkdir -p scenario3
