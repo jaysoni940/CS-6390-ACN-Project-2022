@@ -53,7 +53,7 @@ void NodeDetail::setStreams()
 class Controller
 {
 public:
-    Controller(size_t duration) : duration(duration)
+    Controller(size_t time_interval) : time_interval(time_interval)
     {
         setChannel();
         createNodeChannels();
@@ -86,17 +86,17 @@ void Controller::parseString(string line)
     nodes.network_links[unsigned(c1 - '0')][unsigned(c2 - '0')] = 1;
 }
 
-void Controller::createNodeChannels()
+void Controller::createNodeStream()
 {
     string line;
     while (getline(channel.input, line) && !channel.input.eof())
     {
-        parseString(line);
+        parseString(line_number);
     }
     nodes.setStreams();
 }
 
-void Controller::setChannel()
+void Controller::setStream()
 {
     channel.inside_file_view = string("topology");
     channel.outside_file_view = "";
@@ -110,18 +110,18 @@ void Controller::setChannel()
 
 string Controller::readFile(fstream &fd)
 {
-    string line = "";
-    getline(fd, line);
+    string line_number = "";
+    getline(fd, line_number);
     if (fd.eof())
     {
         fd.clear();
-        line = "";
+        line_number = "";
     }
 
     return line;
 }
 
-void Controller::sendToNeighborsData()
+void Controller::sendDataToNeighbors()
 {
     for (size_t i = 0; i < nodes.nn; i++)
     {
@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
     Controller controller(arg);
     for (size_t i = 0; i < controller.duration; i++)
     {
-        controller.sendToNeighborsData();
+        controller.sendDataToNeighbors();
         sleep(1);
     }
     cout << "CONTROLLER SUCCESS" << endl;
