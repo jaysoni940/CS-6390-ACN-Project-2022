@@ -1,0 +1,19 @@
+clear
+echo -e "INITIATING SCENARIO 3 ... wait for some time to finish!"
+rm -rf bin
+rm -rf scenario3
+mkdir -p scenario3
+make
+cd ./scenario3
+touch topology
+
+#TOPOLOGY 
+echo -e "0 1\n1 2\n2 3\n3 0\n0 4\n4 3" > topology
+
+../bin/controller.out 100 &
+../bin/node.out 0 100 3 "message from 0 to 3" &
+../bin/node.out 1 100 -1 &
+../bin/node.out 2 100 4 "message from 2 to 4" &
+../bin/node.out 3 100 -1 &
+../bin/node.out 4 100 -1 &
+../bin/node.out 5 100 -1 &

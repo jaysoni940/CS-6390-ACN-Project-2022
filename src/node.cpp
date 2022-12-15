@@ -1,550 +1,376 @@
-/*  
- *  Simulates an actual node inside a network with capabilities to 
- *  send and receive data packets via files.
- *  Copyright (C) 2021 Sourabh J Choure
- * 
- *  I promise that the work presented below is of my own.
- * 
- *  To make it FOSS Compliant, this software is free to use.
- */
-
-// STL
 #include <iostream>
+#include <unistd.h>
+#include <cstdlib>
 #include <fstream>
 #include <string>
-// SL
-#include <cstdlib>
-// Unix
-#include <unistd.h>
 
 using namespace std;
 
-#define NUMNODES 10
+#define N 10
 
-struct FileDescriptor
+struct InitialFileView
 {
-    // Store the name of the Files
-    string inputFileName;
-    string outputFileName;
-    string receivedFileName;
-
-    // File Desciptors
+    string inside_file_view;
     fstream input;
+    string outside_file_view;
     ofstream output;
-    ofstream receivedData;
+    string got_file_view;
+    ofstream got_view;
 };
 
 struct Queue
 {
-    // Constructor of the Queue
-    Queue(int cap) : cap(cap), p(new int[cap]), f(0), r(0), n(0){};
-
-    // Store the total capacity of the Queue
-    int cap;
-
-    // Pointer to array
-    int *p;
-
-    // Index to the front of the Queue
-    int f;
-
-    // Index to the rear of the Queue
-    int r;
-
-    // Total Number of elements in the Queue
-    int n;
-
-    // Put the elements in the Queue
-    void enqueue(int);
-
-    // Remove the elements from the Queue
-    int dequeue();
-
-    // Check if the Queue is empty
-    bool empty();
+    Queue(int capacity) : capacity(capacity), pointer_to_array(new int[capacity]), queue_first(0), queue_last(0), no_of_elements(0){};
+    int capacity;
+    int *pointer_to_array;
+    int queue_first;
+    int queue_last;
+    int no_of_elements;
+    void queue_insert(int);
+    int queue_remove();
+    bool queue_null();
 };
 
-void Queue::enqueue(int val)
+void Queue::queue_insert(int val)
 {
-    if (n == cap)
+    pointer_to_array[queue_last] = val;
+    int var2 = queue_last + 1;
+    queue_last = var2 % capacity;
+    no_of_elements++;
+}
+
+int Queue::queue_remove()
+{
+    int var1 = pointer_to_array[queue_first];
+    int var3 = queue_first + 1;
+    queue_first = var3 % capacity;
+    no_of_elements--;
+    return var1;
+}
+
+bool Queue::queue_null()
+{
+    if (no_of_elements == 0)
     {
-        // Queue is Full
+        return true;
     }
-
-    // Put the val
-    p[r] = val;
-
-    // Increment the rear index
-    r = (r + 1) % cap;
-
-    // Increment the total number of elements
-    n++;
-}
-
-int Queue::dequeue()
-{
-    if (n == 0)
+    else
     {
-        // Queue is Empty
+        return false;
     }
-
-    // Remove the element
-    int tmp = p[f];
-
-    // Increment the front index
-    f = (f + 1) % cap;
-
-    // Decrement the number of elements
-    n--;
-
-    // Return the element
-    return tmp;
 }
 
-bool Queue::empty()
+struct nodeHeight
 {
-    return (n == 0) ? true : false;
-}
-
-struct nodeLevel
-{
-    int level = -1;
-    int dest;
+    int height = -1;
+    int final_loc;
 };
 
-struct Routing
+struct PathFinder
 {
-    Routing(int dest, string dataMessage) : dest(dest), dataMessage(dataMessage)
+    PathFinder(int final_loc, string data_value) : final_loc(final_loc), data_value(data_value)
     {
-        for (size_t i = 0; i < NUMNODES; i++)
+        for (size_t i = 0; i < N; i++)
         {
-            incomingNeighbors[i] = 0;
-            pathToIncomingNeighbors[i] = "";
-
-            for (size_t j = 0; j < NUMNODES; j++)
+            peers_in[i] = 0;
+            peers_in_route[i] = "";
+            for (size_t j = 0; j < N; j++)
             {
-                intree[i][j] = 0;
-                prevIntree[i][j] = 0;
-                passDataToNeighbor[i][j] = "";
+                in_tree[i][j] = 0;
+                previous_in_tree[i][j] = 0;
+                send_data_to_neighbors[i][j] = "";
             }
         }
     };
-
-    // Destination Node
-    int dest;
-
-    // Path to Destination
-    string pathToDest = "";
-
-    // Buffer for the data to be sent
-    string dataMessage;
-
-    // Buffer for passing message to Neighbor
-    string passDataToNeighbor[NUMNODES][NUMNODES];
-
-    // Keep track of Incoming Neighbors
-    int incomingNeighbors[NUMNODES];
-
-    // In-tree of a Node
-    int intree[NUMNODES][NUMNODES];
-
-    // Previous In-tree of a Node
-    int prevIntree[NUMNODES][NUMNODES];
-
-    // Check if the Intree changed
-    bool sendIntreeNow = false;
-
-    // Store the path to the neighbor
-    string pathToIncomingNeighbors[NUMNODES];
-
-    // Check if incoming Neighbors is empty
-    bool isINempty();
-
-    // Find the path to the Incoming Neighbor
-    void storePathToIncomingNeighbor(size_t, size_t, int (&)[NUMNODES][NUMNODES]);
-
-    // buildSPT
-    void buildSPT(size_t, size_t, int (&)[NUMNODES][NUMNODES]);
-
-    // Common Function
-    void extendedBFSt(size_t, size_t, int (&)[NUMNODES][NUMNODES], void (Routing::*func)(size_t, size_t, int (&)[NUMNODES][NUMNODES]));
-
-    void extendedBFSt(size_t, size_t, int (&)[NUMNODES][NUMNODES], nodeLevel (&)[NUMNODES], void (Routing::*func)(size_t, size_t, int (&)[NUMNODES][NUMNODES], nodeLevel (&)[NUMNODES]));
-
-    // Common Function
-    void extendedBFSi(size_t, size_t, int (&)[NUMNODES][NUMNODES], void (Routing::*func)(size_t, size_t, int (&)[NUMNODES][NUMNODES]));
-
-    void extendedBFSi(size_t, size_t, int (&)[NUMNODES][NUMNODES], nodeLevel (&)[NUMNODES], void (Routing::*func)(size_t, size_t, int (&)[NUMNODES][NUMNODES], nodeLevel (&)[NUMNODES]));
-
-    // Common Function Helper: Remove TmpTree
-    void removeTmpTreePath(size_t, size_t, int (&)[NUMNODES][NUMNODES]);
-
-    // Common Function Helper: Remove InTree
-    void removeInTreePath(size_t, size_t, int (&)[NUMNODES][NUMNODES]);
-
-    // Common Function Helper: pruneNode
-    void pruneNode(size_t, size_t, int (&)[NUMNODES][NUMNODES]);
-
-    // Common Function Helper: add levels
-    void addLevel(size_t, size_t, int (&)[NUMNODES][NUMNODES], nodeLevel (&)[NUMNODES]);
-
-    // Common Function Helper: remove levels
-    void removeLevel(size_t, size_t, int (&)[NUMNODES][NUMNODES], nodeLevel (&)[NUMNODES]);
+    int final_loc;
+    string destination_path = "";
+    string data_value;
+    bool send_in_tree_current = false;
+    int in_tree[N][N];
+    string send_data_to_neighbors[N][N];
+    int peers_in[N];
+    int previous_in_tree[N][N];
+    string peers_in_route[N];
+    void addHeight(size_t, size_t, int (&)[N][N], nodeHeight (&)[N]);
+    void breadthFirstSearcht(size_t, size_t, int (&)[N][N], nodeHeight (&)[N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N], nodeHeight (&)[N]));
+    void storeInPeerRoute(size_t, size_t, int (&)[N][N]);
+    void breadthFirstSearcht(size_t, size_t, int (&)[N][N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N]));
+    void buildSPT(size_t, size_t, int (&)[N][N]);
+    void breadthFirstSearchi(size_t, size_t, int (&)[N][N], nodeHeight (&)[N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N], nodeHeight (&)[N]));
+    void deleteTempTreeRoute(size_t, size_t, int (&)[N][N]);
+    void deleteInTreeRoute(size_t, size_t, int (&)[N][N]);
+    void breadthFirstSearchi(size_t, size_t, int (&)[N][N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N]));
+    void deleteHeight(size_t, size_t, int (&)[N][N], nodeHeight (&)[N]);
+    bool isINnull();
+    void cutNode(size_t, size_t, int (&)[N][N]);
 };
 
-bool Routing::isINempty()
+bool PathFinder::isINnull()
 {
-    for (size_t i = 0; i < NUMNODES; i++)
+    for (size_t i = 0; i < N; i++)
     {
-        if (incomingNeighbors[i])
+        if (peers_in[i])
             return false;
     }
 
     return true;
 }
 
-void Routing::storePathToIncomingNeighbor(size_t v, size_t rootedAt, int (&tempIntree)[NUMNODES][NUMNODES])
+void PathFinder::storeInPeerRoute(size_t v, size_t root, int (&varInTree)[N][N])
 {
-    // Add Node v to the path
-    pathToIncomingNeighbors[rootedAt] = pathToIncomingNeighbors[rootedAt] + to_string(v) + " ";
 
-    // Traverse the Graph
-    for (size_t w = 0; w < NUMNODES; w++)
+    peers_in_route[root] = peers_in_route[root] + to_string(v) + " ";
+
+    for (size_t w = 0; w < N; w++)
     {
-        if (tempIntree[v][w])
+        if (varInTree[v][w])
         {
-            storePathToIncomingNeighbor(w, rootedAt, tempIntree);
+            storeInPeerRoute(w, root, varInTree);
         }
     }
 }
 
-void Routing::removeTmpTreePath(size_t w, size_t v, int (&tmpIntree)[NUMNODES][NUMNODES])
+void PathFinder::deleteTempTreeRoute(size_t w, size_t v, int (&var1InTree)[N][N])
 {
-    tmpIntree[w][v] = 0;
+    var1InTree[w][v] = 0;
 }
 
-void Routing::removeInTreePath(size_t w, size_t v, int (&tmpIntree)[NUMNODES][NUMNODES])
+void PathFinder::deleteInTreeRoute(size_t w, size_t v, int (&var1InTree)[N][N])
 {
-    intree[w][v] = 0;
+    in_tree[w][v] = 0;
 }
 
-void Routing::pruneNode(size_t w, size_t v, int (&tmpIntree)[NUMNODES][NUMNODES])
+void PathFinder::cutNode(size_t w, size_t v, int (&var1InTree)[N][N])
 {
-    if (!tmpIntree[w][v])
+    if (!var1InTree[w][v])
     {
-        intree[w][v] = 0;
+        in_tree[w][v] = 0;
     }
 }
 
-void Routing::addLevel(size_t w, size_t v, int (&tmpIntree)[NUMNODES][NUMNODES], nodeLevel (&levels)[NUMNODES])
+void PathFinder::addHeight(size_t w, size_t v, int (&var1InTree)[N][N], nodeHeight (&heights)[N])
 {
-    levels[w].level = levels[v].level + 1;
-    levels[w].dest = v;
+    heights[w].height = heights[v].height + 1;
+    heights[w].final_loc = v;
 }
 
-void Routing::removeLevel(size_t w, size_t v, int (&tmpIntree)[NUMNODES][NUMNODES], nodeLevel (&levels)[NUMNODES])
+void PathFinder::deleteHeight(size_t w, size_t v, int (&var1InTree)[N][N], nodeHeight (&heights)[N])
 {
-    tmpIntree[w][v] = 0;
-    levels[w].level = -1;
-    levels[w].dest = -1;
+    var1InTree[w][v] = 0;
+    heights[w].height = -1;
+    heights[w].final_loc = -1;
 }
 
-void Routing::extendedBFSt(size_t ID, size_t rootedAt, int (&tmpIntree)[NUMNODES][NUMNODES], void (Routing::*func)(size_t, size_t, int (&)[NUMNODES][NUMNODES]))
+void PathFinder::breadthFirstSearcht(size_t node_id, size_t root, int (&var1InTree)[N][N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N]))
 {
-    // Queue to traverse
-    Queue qGraph(NUMNODES);
 
-    // Record for visited Nodes
-    bool visNodes[NUMNODES] = {false};
-
-    // Enqueue the root
-    qGraph.enqueue(ID);
-
-    // Mark the root as visited
-    visNodes[ID] = true;
-
-    // Traverse till Queue is empty
-    while (!qGraph.empty())
+    Queue graph_queue(N);
+    bool visited[N] = {false};
+    graph_queue.queue_insert(node_id);
+    visited[node_id] = true;
+    while (!graph_queue.queue_null())
     {
-        // Remove the element from the Queue
-        int v = qGraph.dequeue();
 
-        // Scan through all the nodes in the graph
-        for (int w = 0; w < NUMNODES; w++)
+        int x = graph_queue.queue_remove();
+
+        for (int y = 0; y < N; y++)
         {
-            if (tmpIntree[w][v])
+            if (var1InTree[y][x])
             {
-                if (!visNodes[w])
+                if (!visited[y])
                 {
-                    visNodes[w] = 1;
-                    (this->*func)(w, v, tmpIntree);
-                    qGraph.enqueue(w);
+                    visited[y] = 1;
+                    (this->*func)(y, x, var1InTree);
+                    graph_queue.queue_insert(y);
                 }
             }
         }
     }
 }
 
-void Routing::extendedBFSt(size_t ID, size_t rootedAt, int (&tmpIntree)[NUMNODES][NUMNODES], nodeLevel (&levels)[NUMNODES], void (Routing::*func)(size_t, size_t, int (&)[NUMNODES][NUMNODES], nodeLevel (&)[NUMNODES]))
+void PathFinder::breadthFirstSearcht(size_t node_id, size_t root, int (&var1InTree)[N][N], nodeHeight (&heights)[N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N], nodeHeight (&)[N]))
 {
-    // Mark the levels as zero
-    levels[ID].level = 0;
-    levels[ID].dest = -1;
 
-    // Queue to traverse
-    Queue qGraph(NUMNODES);
-
-    // Record for visited Nodes
-    bool visNodes[NUMNODES] = {false};
-
-    // Enqueue the root
-    qGraph.enqueue(ID);
-
-    // Mark the root as visited
-    visNodes[ID] = true;
-
-    // Traverse till Queue is empty
-    while (!qGraph.empty())
+    heights[node_id].height = 0;
+    heights[node_id].final_loc = -1;
+    Queue graph_queue(N);
+    bool visited[N] = {false};
+    graph_queue.queue_insert(node_id);
+    visited[node_id] = true;
+    while (!graph_queue.queue_null())
     {
-        // Remove the element from the Queue
-        int v = qGraph.dequeue();
-
-        // Scan through all the nodes in the graph
-        for (int w = 0; w < NUMNODES; w++)
+        int v = graph_queue.queue_remove();
+        for (int w = 0; w < N; w++)
         {
-            if (tmpIntree[w][v])
+            if (var1InTree[w][v])
             {
-                if (!visNodes[w])
+                if (!visited[w])
                 {
-                    visNodes[w] = 1;
-                    (this->*func)(w, v, tmpIntree, levels);
-                    qGraph.enqueue(w);
+                    visited[w] = 1;
+                    (this->*func)(w, v, var1InTree, heights);
+                    graph_queue.queue_insert(w);
                 }
             }
         }
     }
 }
 
-void Routing::extendedBFSi(size_t ID, size_t rootedAt, int (&tmpIntree)[NUMNODES][NUMNODES], void (Routing::*func)(size_t, size_t, int (&)[NUMNODES][NUMNODES]))
+void PathFinder::breadthFirstSearchi(size_t node_id, size_t root, int (&var1InTree)[N][N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N]))
 {
-    // Queue to traverse
-    Queue qGraph(NUMNODES);
-
-    // Record for visited Nodes
-    bool visNodes[NUMNODES] = {false};
-
-    // Enqueue the root
-    qGraph.enqueue(rootedAt);
-
-    // Mark the root as visited
-    visNodes[rootedAt] = true;
-
-    // Traverse till Queue is empty
-    while (!qGraph.empty())
+    Queue graph_queue(N);
+    bool visited[N] = {false};
+    graph_queue.queue_insert(root);
+    visited[root] = true;
+    while (!graph_queue.queue_null())
     {
-        // Remove the element from the Queue
-        int v = qGraph.dequeue();
-
-        // Scan through all the nodes in the graph
-        for (int w = 0; w < NUMNODES; w++)
+        int v = graph_queue.queue_remove();
+        for (int w = 0; w < N; w++)
         {
-            if (intree[w][v])
+            if (in_tree[w][v])
             {
-                if (!visNodes[w])
+                if (!visited[w])
                 {
-                    visNodes[w] = 1;
-                    (this->*func)(w, v, tmpIntree);
-                    qGraph.enqueue(w);
+                    visited[w] = 1;
+                    (this->*func)(w, v, var1InTree);
+                    graph_queue.queue_insert(w);
                 }
             }
         }
     }
 }
 
-void Routing::extendedBFSi(size_t ID, size_t rootedAt, int (&tmpIntree)[NUMNODES][NUMNODES], nodeLevel (&levels)[NUMNODES], void (Routing::*func)(size_t, size_t, int (&)[NUMNODES][NUMNODES], nodeLevel (&)[NUMNODES]))
+void PathFinder::breadthFirstSearchi(size_t node_id, size_t root, int (&var1InTree)[N][N], nodeHeight (&heights)[N], void (PathFinder::*func)(size_t, size_t, int (&)[N][N], nodeHeight (&)[N]))
 {
-    // Mark the levels as zero
-    levels[rootedAt].level = 0;
-    levels[rootedAt].dest = -1;
-
-    // Queue to traverse
-    Queue qGraph(NUMNODES);
-
-    // Record for visited Nodes
-    bool visNodes[NUMNODES] = {false};
-
-    // Enqueue the root
-    qGraph.enqueue(rootedAt);
-
-    // Mark the root as visited
-    visNodes[rootedAt] = true;
-
-    // Traverse till Queue is empty
-    while (!qGraph.empty())
+    heights[root].height = 0;
+    heights[root].final_loc = -1;
+    Queue graph_queue(N);
+    bool visited[N] = {false};
+    graph_queue.queue_insert(root);
+    visited[root] = true;
+    while (!graph_queue.queue_null())
     {
-        // Remove the element from the Queue
-        int v = qGraph.dequeue();
-
-        // Scan through all the nodes in the graph
-        for (int w = 0; w < NUMNODES; w++)
+        int v = graph_queue.queue_remove();
+        for (int w = 0; w < N; w++)
         {
-            if (intree[w][v])
+            if (in_tree[w][v])
             {
-                if (!visNodes[w])
+                if (!visited[w])
                 {
-                    visNodes[w] = 1;
-                    (this->*func)(w, v, tmpIntree, levels);
-                    qGraph.enqueue(w);
+                    visited[w] = 1;
+                    (this->*func)(w, v, var1InTree, heights);
+                    graph_queue.queue_insert(w);
                 }
             }
         }
     }
 }
 
-void Routing::buildSPT(size_t ID, size_t rootedAt, int (&tmpIntree)[NUMNODES][NUMNODES])
+void PathFinder::buildSPT(size_t node_id, size_t root, int (&var1InTree)[N][N])
 {
-    // Store the Previous Intree
-    for(size_t i = 0; i < NUMNODES; i++)
+    for (size_t i = 0; i < N; i++)
     {
-        for(size_t j = 0; j < NUMNODES; j++)
+        for (size_t j = 0; j < N; j++)
         {
-            prevIntree[i][j] = intree[i][j];
+            previous_in_tree[i][j] = in_tree[i][j];
         }
     }
 
-    // Modify the intree of the incoming neighbor
-    for (size_t i = 0; i < NUMNODES; i++)
+    for (size_t i = 0; i < N; i++)
     {
-        tmpIntree[ID][i] = 0;
+        var1InTree[node_id][i] = 0;
     }
-
-    extendedBFSt(ID, rootedAt, tmpIntree, &Routing::removeTmpTreePath);
-
-    tmpIntree[rootedAt][ID] = 1;
-
-    // Prune the dead nodes from the intree by comparing it with the last tempintree
-    extendedBFSi(ID, rootedAt, tmpIntree, &Routing::pruneNode);
-
-    // Mark all the nodes as unvisited at the start
-    nodeLevel levelCur[NUMNODES];
-    nodeLevel levelTmp[NUMNODES];
-
-    extendedBFSi(rootedAt, ID, tmpIntree, levelCur, &Routing::addLevel);
-
-    extendedBFSt(ID, rootedAt, tmpIntree, levelTmp, &Routing::addLevel);
-
-    int mergeTree[NUMNODES][NUMNODES] = {0};
-
-    // Merge the levels
-    for (int hop = 1; hop < NUMNODES; hop++)
+    breadthFirstSearcht(node_id, root, var1InTree, &PathFinder::deleteTempTreeRoute);
+    var1InTree[root][node_id] = 1;
+    breadthFirstSearchi(node_id, root, var1InTree, &PathFinder::cutNode);
+    nodeHeight current_height[N];
+    nodeHeight temp_height[N];
+    breadthFirstSearchi(root, node_id, var1InTree, current_height, &PathFinder::addHeight);
+    breadthFirstSearcht(node_id, root, var1InTree, temp_height, &PathFinder::addHeight);
+    int join_tree[N][N] = {0};
+    for (int jump = 1; jump < N; jump++)
     {
-        int count = NUMNODES;
+        int count = N;
         while (count--)
         {
-            int cmpLvl = -1;
-            int cmpTmp = -1;
-
-            for (size_t curLvl = 0; curLvl < NUMNODES; curLvl++)
+            int compare_h1 = -1;
+            int compare_temp = -1;
+            for (size_t curLvl = 0; curLvl < N; curLvl++)
             {
-                if (levelCur[curLvl].level == hop)
+                if (current_height[curLvl].height == jump)
                 {
-                    cmpLvl = curLvl;
+                    compare_h1 = curLvl;
                     break;
                 }
             }
-
-            for (size_t tmpLvl = 0; tmpLvl < NUMNODES; tmpLvl++)
+            for (size_t tmpLvl = 0; tmpLvl < N; tmpLvl++)
             {
-                if (levelTmp[tmpLvl].level == hop)
+                if (temp_height[tmpLvl].height == jump)
                 {
-                    cmpTmp = tmpLvl;
+                    compare_temp = tmpLvl;
                     break;
                 }
             }
-
-            if (cmpLvl == -1 && cmpTmp == -1)
+            if (compare_h1 == -1 && compare_temp == -1)
             {
                 break;
             }
-
-            else if ((cmpLvl != -1 && cmpTmp == -1) || (cmpLvl != -1 && cmpTmp != -1 && cmpLvl < cmpTmp))
+            else if ((compare_h1 != -1 && compare_temp == -1) || (compare_h1 != -1 && compare_temp != -1 && compare_h1 < compare_temp))
             {
-                int dest = levelCur[cmpLvl].dest;
-
-                if (levelTmp[cmpLvl].level == -1)
+                int final_loc = current_height[compare_h1].final_loc;
+                if (temp_height[compare_h1].height == -1)
                 {
-                    mergeTree[cmpLvl][dest] = 1;
+                    join_tree[compare_h1][final_loc] = 1;
                 }
                 else
                 {
-                    mergeTree[cmpLvl][dest] = 1;
-
-                    // Modify the intree of the incoming neighbor
-                    tmpIntree[cmpLvl][levelTmp[cmpLvl].dest] = 0;
-
-                    extendedBFSt(cmpLvl, rootedAt, tmpIntree, levelTmp, &Routing::removeLevel);
+                    join_tree[compare_h1][final_loc] = 1;
+                    var1InTree[compare_h1][temp_height[compare_h1].final_loc] = 0;
+                    breadthFirstSearcht(compare_h1, root, var1InTree, temp_height, &PathFinder::deleteHeight);
                 }
-
-                levelCur[cmpLvl].level = -1;
-                levelCur[cmpLvl].dest = -1;
-
-                levelTmp[cmpLvl].level = -1;
-                levelTmp[cmpLvl].dest = -1;
+                current_height[compare_h1].height = -1;
+                current_height[compare_h1].final_loc = -1;
+                temp_height[compare_h1].height = -1;
+                temp_height[compare_h1].final_loc = -1;
             }
-
-            else if ((cmpLvl == -1 && cmpTmp != -1) || (cmpLvl != -1 && cmpTmp != -1 && cmpLvl > cmpTmp))
+            else if ((compare_h1 == -1 && compare_temp != -1) || (compare_h1 != -1 && compare_temp != -1 && compare_h1 > compare_temp))
             {
-                int dest = levelTmp[cmpTmp].dest;
-
-                if (levelCur[cmpTmp].level == -1)
+                int final_loc = temp_height[compare_temp].final_loc;
+                if (current_height[compare_temp].height == -1)
                 {
-                    mergeTree[cmpTmp][dest] = 1;
+                    join_tree[compare_temp][final_loc] = 1;
                 }
                 else
                 {
-                    mergeTree[cmpTmp][dest] = 1;
-
-                    // Modify the intree of the myself
-                    intree[cmpTmp][levelCur[cmpTmp].dest] = 0;
-
-                    extendedBFSi(ID, cmpTmp, tmpIntree, levelCur, &Routing::removeLevel);
+                    join_tree[compare_temp][final_loc] = 1;
+                    in_tree[compare_temp][current_height[compare_temp].final_loc] = 0;
+                    breadthFirstSearchi(node_id, compare_temp, var1InTree, current_height, &PathFinder::deleteHeight);
                 }
-
-                levelTmp[cmpTmp].level = -1;
-                levelTmp[cmpTmp].dest = -1;
-
-                levelCur[cmpTmp].level = -1;
-                levelCur[cmpTmp].dest = -1;
+                temp_height[compare_temp].height = -1;
+                temp_height[compare_temp].final_loc = -1;
+                current_height[compare_temp].height = -1;
+                current_height[compare_temp].final_loc = -1;
             }
-
-            else if (cmpLvl != -1 && cmpTmp != -1 && cmpLvl == cmpTmp)
+            else if (compare_h1 != -1 && compare_temp != -1 && compare_h1 == compare_temp)
             {
-                int dest = levelCur[cmpLvl].dest;
-
-                mergeTree[cmpLvl][dest] = 1;
-
-                levelCur[cmpLvl].level = -1;
-                levelCur[cmpLvl].dest = -1;
-
-                levelTmp[cmpTmp].level = -1;
-                levelTmp[cmpTmp].dest = -1;
+                int final_loc = current_height[compare_h1].final_loc;
+                join_tree[compare_h1][final_loc] = 1;
+                current_height[compare_h1].height = -1;
+                current_height[compare_h1].final_loc = -1;
+                temp_height[compare_temp].height = -1;
+                temp_height[compare_temp].final_loc = -1;
             }
         }
     }
-
-    // copy to intree
-    for (size_t i = 0; i < NUMNODES; i++)
-        for (size_t j = 0; j < NUMNODES; j++)
-            intree[i][j] = mergeTree[i][j];
-
-    // Check if the intree changed to push it immediately
-    for(size_t i = 0; i < NUMNODES; i++)
+    for (size_t i = 0; i < N; i++)
+        for (size_t j = 0; j < N; j++)
+            in_tree[i][j] = join_tree[i][j];
+    for (size_t i = 0; i < N; i++)
     {
-        for(size_t j = 0; j < NUMNODES; j++)
+        for (size_t j = 0; j < N; j++)
         {
-            if(prevIntree[i][j] != intree[i][j])
+            if (previous_in_tree[i][j] != in_tree[i][j])
             {
-                sendIntreeNow = true;
+                send_in_tree_current = true;
             }
         }
     }
@@ -553,365 +379,235 @@ void Routing::buildSPT(size_t ID, size_t rootedAt, int (&tmpIntree)[NUMNODES][NU
 class Node
 {
 public:
-    Node(size_t ID, size_t duration, int dest, string dataMessage) : ID(ID), duration(duration), msg(dest, dataMessage)
+    Node(size_t node_id, size_t time_interval, int final_loc, string data_value) : node_id(node_id), time_interval(time_interval), msg(final_loc, data_value)
     {
-        setChannels();
+        setStreams();
     };
     ~Node();
-
-    // ID of the node
-    size_t ID;
-
-    // Duration
-    size_t duration;
-
-    // Hello Message Sender
-    void helloProtocol();
-
-    // Intree Protocol
-    void intreeProtocol();
-
-    // Data Protocol
-    void dataProtocol();
-
-    // Process Input File
+    size_t node_id;
+    size_t time_interval;
+    void helloFunc();
+    void intreeFunc();
+    void dataFunc();
     void processInputFile();
 
 private:
-    // Keep record of who sent the intree message
-    bool gotIntree[NUMNODES] = {0};
-
-    // Channels of the Node
-    FileDescriptor channel;
-
-    // Routing Data Structure
-    Routing msg;
-
-    // init the channels
-    void setChannels();
-
-    // read the file contents line by line
+    bool gotIntree[N] = {0};
+    InitialFileView stream;
+    PathFinder msg;
+    void setStreams();
     string readFile(fstream &);
-
-    // Return the path to the destination
     void findPathToDest(int, string &);
-
-    // Compute the Hello Messages
     void computeHello(string &);
-
-    // Compute the intree Messages
     void computeIntree(string &);
-
-    // Compute the Data Messages
     void computeData(string &);
 };
 
 Node::~Node()
 {
-    // Close the channels
-    channel.input.close();
-    channel.output.close();
-    channel.receivedData.close();
+    stream.input.close();
+    stream.output.close();
+    stream.got_view.close();
 }
 
-void Node::setChannels()
+void Node::setStreams()
 {
-    channel.inputFileName = string("input_") + char('0' + ID);
-    channel.outputFileName = string("output_") + char('0' + ID);
-    channel.receivedFileName = char('0' + ID) + string("_received");
-
-    channel.input.open(channel.inputFileName.c_str(), ios::out);
-    channel.input.close();
-
-    channel.input.open(channel.inputFileName.c_str(), ios::in);
-    channel.output.open(channel.outputFileName.c_str(), ios::out | ios::app);
-    channel.receivedData.open(channel.receivedFileName.c_str(), ios::out | ios::app);
-
-    if (channel.input.fail())
+    stream.inside_file_view = string("input_file_") + char('0' + node_id);
+    stream.outside_file_view = string("output_file_") + char('0' + node_id);
+    stream.got_file_view = char('0' + node_id) + string("_received_file");
+    stream.input.open(stream.inside_file_view.c_str(), ios::out);
+    stream.input.close();
+    stream.input.open(stream.inside_file_view.c_str(), ios::in);
+    stream.output.open(stream.outside_file_view.c_str(), ios::out | ios::app);
+    stream.got_view.open(stream.got_file_view.c_str(), ios::out | ios::app);
+    if (stream.input.fail())
     {
-        cout << "Node " << ID << ": No input file" << endl;
+        cout << "NODE " << node_id << ": THERE IS NO INPUT FILE" << endl;
         exit(1);
     }
-    if (channel.output.fail())
+    if (stream.output.fail())
     {
-        cout << "Node " << ID << ": No output file" << endl;
+        cout << "NODE " << node_id << ": THERE IS NO OUTPUT FILE" << endl;
         exit(1);
     }
-    if (channel.receivedData.fail())
+    if (stream.got_view.fail())
     {
-        cout << "Node " << ID << ": No receivedData file" << endl;
+        cout << "NODE " << node_id << ": THERE IS NO RECEIVED FILE" << endl;
         exit(1);
     }
 }
 
 string Node::readFile(fstream &fd)
 {
-    string line = "";
-    getline(fd, line);
+    string line_number = "";
+    getline(fd, line_number);
     if (fd.eof())
     {
         fd.clear();
-        line = "";
+        line_number = "";
     }
-
-    return line;
+    return line_number;
 }
 
-void Node::helloProtocol()
+void Node::helloFunc()
 {
-    // Send the Hello Message on the Output file for the controller to read
-    channel.output << "Hello " << ID << endl;
-    channel.output.flush();
+    stream.output << "HELLO " << node_id << endl;
+    stream.output.flush();
 }
 
-void Node::intreeProtocol()
+void Node::intreeFunc()
 {
-    // Check the status of incoming Neighbors
-    if (msg.isINempty())
+    if (msg.isINnull())
     {
-        channel.output << "Intree " << ID << endl;
-        channel.output.flush();
+        stream.output << "INTREE " << node_id << endl;
+        stream.output.flush();
         return;
     }
-
-    // Create a buffer for the message to send
-    string buffer = "Intree " + to_string(ID) + " ";
-
-    // Traverse the Intree
-    Queue qCurNode(NUMNODES);
-
-    // Visit Node
-    bool visCur[NUMNODES] = {false};
-
-    // Enqueue the Node
-    qCurNode.enqueue(ID);
-
-    // Mark it visited
-    visCur[ID] = true;
-
-    // Check if a Current Node Queue is empty
-    while (!qCurNode.empty())
+    string buffer = "INTREE " + to_string(node_id) + " ";
+    Queue qCurNode(N);
+    bool visCur[N] = {false};
+    qCurNode.queue_insert(node_id);
+    visCur[node_id] = true;
+    while (!qCurNode.queue_null())
     {
-        // Remove the element from the Queue
-        int v = qCurNode.dequeue();
-
-        // Scan through all the nodes in the graph
-        for (int w = 0; w < NUMNODES; w++)
+        int v = qCurNode.queue_remove();
+        for (int w = 0; w < N; w++)
         {
-            if (msg.intree[w][v])
+            if (msg.in_tree[w][v])
             {
                 if (!visCur[w])
                 {
                     visCur[w] = 1;
-                    qCurNode.enqueue(w);
-                    buffer = buffer + "(" + to_string(w) + " " + to_string(v) + ")";
+                    qCurNode.queue_insert(w);
+                    buffer = buffer + " (" + to_string(w) + " " + to_string(v) + ") ";
                 }
             }
         }
     }
-
-    // write to the file
-    channel.output << buffer << endl;
-    channel.output.flush();
+    stream.output << buffer << endl;
+    stream.output.flush();
 }
 
 void Node::findPathToDest(int v, string &path)
 {
-    // Store the path
     path = path + to_string(v) + " ";
-
-    for (size_t w = 0; w < NUMNODES; w++)
+    for (size_t w = 0; w < N; w++)
     {
-        if (msg.intree[v][w])
+        if (msg.in_tree[v][w])
         {
             findPathToDest(w, path);
         }
     }
 }
 
-void Node::dataProtocol()
+void Node::dataFunc()
 {
-    // Send the Data Message if the destination is not -1
-    if (msg.dest != -1)
+    if (msg.final_loc != -1)
     {
-        // Clear the old path
-        msg.pathToDest = "";
-
-        // Find the new path
-        findPathToDest(msg.dest, msg.pathToDest);
-
-        // Check if string was empty or not
-        string tempCheck = to_string(msg.dest) + " ";
-        if (msg.pathToDest == tempCheck)
+        msg.destination_path = "";
+        findPathToDest(msg.final_loc, msg.destination_path);
+        string tempCheck = to_string(msg.final_loc) + " ";
+        if (msg.destination_path == tempCheck)
         {
-            msg.pathToDest = "";
-
-            //exit
+            msg.destination_path = "";
             return;
         }
-
-        // Find the Incoming Neighbor
-        size_t len = msg.pathToDest.length();
-        char in = msg.pathToDest[len - 4];
-
-        if (msg.pathToIncomingNeighbors[in - '0'] == "")
+        size_t len = msg.destination_path.length();
+        char in = msg.destination_path[len - 4];
+        if (msg.peers_in_route[in - '0'] == "")
             return;
-
-        string path = msg.pathToIncomingNeighbors[in - '0'];
-
+        string path = msg.peers_in_route[in - '0'];
         path.erase(0, 2);
-
-        // Send the data to the Incoming Neighbor
-        channel.output << "Data " << ID << " " << msg.dest << " " << path << "begin " << msg.dataMessage << endl;
-        channel.output.flush();
+        stream.output << "DATA " << node_id << " " << msg.final_loc << " " << path << "START " << msg.data_value << endl;
+        stream.output.flush();
     }
 }
 
-void Node::computeHello(string &line)
+void Node::computeHello(string &line_number)
 {
-    // Read the Input file to check for the message
-    // and then update the incoming neighbors
-
-    //Store the node number in char form
-    char c = line[6];
-
-    // Update the Incoming Neighbors
-    msg.incomingNeighbors[c - '0'] = 1;
+    char c = line_number[6];
+    msg.peers_in[c - '0'] = 1;
 }
 
-void Node::computeIntree(string &line)
+void Node::computeIntree(string &line_number)
 {
-
-    // Read the input file
-    // Update the Intree Graph
-    // Make the Intree Graph with the help of the Intree message and Incoming neighbors
-    // Parse the Intree Message
-    // Calculate the total length of the message
-    size_t len = line.length();
-
-    // Find who sent this message
-    char c = line[7];
-    // Let's convert it to int;
-    int rootedAt = c - '0';
-    // Store in the who sent Intree
-    gotIntree[rootedAt] = true;
-
-    // Calculate the length of body part of the message
+    size_t len = line_number.length();
+    char c = line_number[7];
+    int root = c - '0';
+    gotIntree[root] = true;
     size_t body;
     if (len == 8)
     {
-        // No body to calculate
         body = 0;
     }
     else
     {
-        // Size of the header plus extra the space, starts from '(' and ends at ')'
         body = len - 9;
     }
-
-    // Create a temporary Intree Graph of the received Intree message
-    int tmpIntree[NUMNODES][NUMNODES] = {{0}};
-
-    // Extract the node numbers from the message
+    int var1InTree[N][N] = {{0}};
     for (size_t i = 0; i < body; i += 5)
     {
-        char r = line[10 + i];
-        char c = line[10 + i + 2];
-
-        // Place a directed edge here
-        tmpIntree[r - '0'][c - '0'] = 1;
+        char queue_last = line_number[10 + i];
+        char c = line_number[10 + i + 2];
+        var1InTree[queue_last - '0'][c - '0'] = 1;
     }
-
-    //Refresh the Contents in Path To Incoming Neighbor
-    msg.pathToIncomingNeighbors[rootedAt] = "";
-    // Find the path to the Incoming Neighbor
-    msg.storePathToIncomingNeighbor(ID, rootedAt, tmpIntree);
-    // Check if string was empty or not
-    string tmpCheck = to_string(ID) + " ";
-    if (msg.pathToIncomingNeighbors[rootedAt] == tmpCheck)
-        msg.pathToIncomingNeighbors[rootedAt] = "";
-
-    // Merge the two trees
-    msg.buildSPT(ID, rootedAt, tmpIntree);
+    msg.peers_in_route[root] = "";
+    msg.storeInPeerRoute(node_id, root, var1InTree);
+    string tmpCheck = to_string(node_id) + " ";
+    if (msg.peers_in_route[root] == tmpCheck)
+        msg.peers_in_route[root] = "";
+    msg.buildSPT(node_id, root, var1InTree);
 }
 
-void Node::computeData(string &line)
+void Node::computeData(string &line_number)
 {
-    // Parse the input file
-    // Extract the Intermediate node
-    char dataInterDest = line[9];
-
-    // Check if it is destined to me
-    if (unsigned(dataInterDest - '0') != ID)
+    char dataInterDest = line_number[9];
+    if (unsigned(dataInterDest - '0') != node_id)
         return;
-
-    // Extract the Destination Node
-    char dataDest = line[7];
-
-    // Extract the Source Node
-    char dataSrc = line[5];
-
-    if (unsigned(dataDest - '0') == ID && line[11] == 'b')
+    char dataDest = line_number[7];
+    char dataSrc = line_number[5];
+    if (unsigned(dataDest - '0') == node_id && line_number[11] == 'b')
     {
-        // Extract the data Message
-        string message = line.erase(0, 17);
-
-        // Add the data to the received file
-        channel.receivedData << "Message from " << dataSrc << " to " << dataDest << " : " << message << endl;
+        string message = line_number.erase(0, 17);
+        stream.got_view << "MESSAGE FROM  " << dataSrc << " TO " << dataDest << " : " << message << endl;
     }
     else
     {
-        if (line[11] == 'b')
+        if (line_number[11] == 'b')
         {
-
-            // Extract the data Message
-            string message = line.erase(0, 17);
-
-            //Pass to Neighbor
+            string message = line_number.erase(0, 17);
             string intermediateNode = "";
-
-            // Find the new path
             findPathToDest((dataDest - '0'), intermediateNode);
-
-            // Check if string was empty or not
             string tempCheck = dataDest + " ";
             if (intermediateNode == tempCheck)
             {
                 intermediateNode = "";
                 return;
             }
-
-            // Find the Incoming Neighbor
             size_t len = intermediateNode.length();
             char in = intermediateNode[len - 4];
-
-            if (msg.pathToIncomingNeighbors[in - '0'] == "")
+            if (msg.peers_in_route[in - '0'] == "")
                 return;
-
-            string path = msg.pathToIncomingNeighbors[in - '0'];
-
+            string path = msg.peers_in_route[in - '0'];
             path.erase(0, 2);
-
-            for (size_t j = 0; j < NUMNODES; j++)
+            for (size_t j = 0; j < N; j++)
             {
-                if (msg.passDataToNeighbor[dataSrc - '0'][j] == "")
+                if (msg.send_data_to_neighbors[dataSrc - '0'][j] == "")
                 {
-                    msg.passDataToNeighbor[dataSrc - '0'][j] = "Data " + to_string((dataSrc - '0')) + " " + to_string((dataDest - '0')) + " " + path + "begin " + message;
+                    msg.send_data_to_neighbors[dataSrc - '0'][j] = "DATA " + to_string((dataSrc - '0')) + " " + to_string((dataDest - '0')) + " " + path + "START " + message;
                     break;
                 }
             }
         }
         else
         {
-            // Remove myself from the intermediate nodes
-            line.erase(line.begin() + 9);
-            line.erase(line.begin() + 9);
-
-            for (size_t j = 0; j < NUMNODES; j++)
+            line_number.erase(line_number.begin() + 9);
+            line_number.erase(line_number.begin() + 9);
+            for (size_t j = 0; j < N; j++)
             {
-                if (msg.passDataToNeighbor[dataSrc - '0'][j] == "")
+                if (msg.send_data_to_neighbors[dataSrc - '0'][j] == "")
                 {
-                    msg.passDataToNeighbor[dataSrc - '0'][j] = line;
+                    msg.send_data_to_neighbors[dataSrc - '0'][j] = line_number;
                     break;
                 }
             }
@@ -922,124 +618,83 @@ void Node::computeData(string &line)
 void Node::processInputFile()
 {
     static size_t timer = 0;
-    string line = "";
-    while ((line = readFile(channel.input)) != "")
+    string line_number = "";
+    while ((line_number = readFile(stream.input)) != "")
     {
-        // Check for Hello Message
-        if (line[0] == 'H')
-            computeHello(line);
-
-        // Check for Intree Message
-        if (line[0] == 'I')
-            computeIntree(line);
-
-        // Check for Data Message
-        if (line[0] == 'D')
-            computeData(line);
+        if (line_number[0] == 'H')
+            computeHello(line_number);
+        if (line_number[0] == 'I')
+            computeIntree(line_number);
+        if (line_number[0] == 'D')
+            computeData(line_number);
     }
-
     if (timer > 0 && ((timer - 2) % 10) == 0)
     {
-        // Keep with the neighbors who sent the Intree
-        for (size_t i = 0; i < NUMNODES; i++)
+        for (size_t i = 0; i < N; i++)
         {
-            if (msg.incomingNeighbors[i] == 1 && gotIntree[i] == false)
+            if (msg.peers_in[i] == 1 && gotIntree[i] == false)
             {
-                cout << "Node " << ID << ": oh no! Node " << i << " got killed! Time to adapt my peers!" << endl;
-
-                // Modify the intree of the Node
-                msg.intree[i][ID] = 0;
-
-                // Remove the subtree
-                msg.extendedBFSi(ID, i, msg.intree, &Routing::removeInTreePath);
-
-                // Remove it from the Incoming Neighbor
-                msg.incomingNeighbors[i] = 0;
-
-                // Push the intree message Immediately
-                msg.sendIntreeNow = true;
+                cout << "NODE " << node_id << ": PHSS! NODE " << i << " IS DESTROYED... NOW FOLLOWING PEERS!" << endl;
+                msg.in_tree[i][node_id] = 0;
+                msg.breadthFirstSearchi(node_id, i, msg.in_tree, &PathFinder::deleteInTreeRoute);
+                msg.peers_in[i] = 0;
+                msg.send_in_tree_current = true;
             }
-            else if (msg.incomingNeighbors[i] == 0 && gotIntree[i] == true)
+            else if (msg.peers_in[i] == 0 && gotIntree[i] == true)
             {
-                // Add it to the incoming Neighbors
-                msg.incomingNeighbors[i] = 1;
+                msg.peers_in[i] = 1;
             }
-
             gotIntree[i] = false;
         }
     }
-
-    // Push the In-tree Immediately
-    if(msg.sendIntreeNow)
+    if (msg.send_in_tree_current)
     {
-        intreeProtocol();
-        msg.sendIntreeNow = false;
+        intreeFunc();
+        msg.send_in_tree_current = false;
     }
-
-    // Pass the Data Message to the Neighbor
-    for (size_t i = 0; i < NUMNODES; i++)
+    for (size_t i = 0; i < N; i++)
     {
-        for (size_t j = 0; j < NUMNODES; j++)
+        for (size_t j = 0; j < N; j++)
         {
-            if (msg.passDataToNeighbor[i][j] != "")
+            if (msg.send_data_to_neighbors[i][j] != "")
             {
-                channel.output << msg.passDataToNeighbor[i][j] << endl;
-                channel.output.flush();
-                msg.passDataToNeighbor[i][j] = "";
+                stream.output << msg.send_data_to_neighbors[i][j] << endl;
+                stream.output.flush();
+                msg.send_data_to_neighbors[i][j] = "";
             }
         }
     }
-
     timer++;
 }
 
 int main(int argc, char *argv[])
 {
-    //Check number of arguments
     if (argc < 4 || argc > 5)
     {
-        cout << "too " << (argc < 4 ? "few " : "many ") << "arguments passed" << endl;
-        cout << "Requires: ID, Duration, Destination, Message(if Destination !=-1)" << endl;
+        cout << "ERROR: " << (argc < 4 ? "LESS " : "MANY ") << "PARAMETERS PASSED" << endl;
+        cout << "REQUIRED: node_id, Duration, Destination, Message" << endl;
         return -1;
     }
-
-    //Convert Char Array to long int
     long int arg[3];
     for (int i = 0; i < 3; i++)
         arg[i] = strtol(argv[i + 1], NULL, 10);
-
-    //Check if a node is going to send data or not
     string data;
     if (arg[2] == -1)
         data = "";
     else
         data = argv[4];
-
-    //Create a node
     Node node(arg[0], arg[1], arg[2], data);
-
-    for (size_t i = 0; i < node.duration; i++)
+    for (size_t i = 0; i < node.time_interval; i++)
     {
-        // Send Hello Message every 30 seconds
         if (i % 30 == 0)
-            node.helloProtocol();
-
-        // Send In tree message every 10 seconds
+            node.helloFunc();
         if (i % 10 == 0)
-            node.intreeProtocol();
-
-        // Send Data message every 15 seconds
+            node.intreeFunc();
         if (i % 15 == 0)
-            node.dataProtocol();
-
-        // Read the Input file and update the received file if neccessary
+            node.dataFunc();
         node.processInputFile();
-
-        // Sleep for One second
         sleep(1);
     }
-
-    cout << "Node " << node.ID << " Done" << endl;
-
+    cout << "NODE " << node.node_id << " SUCCESS" << endl;
     return 0;
 }
