@@ -563,14 +563,14 @@ void Node::computeData(string &line_number)
         return;
     char dataDest = line_number[7];
     char dataSrc = line_number[5];
-    if (unsigned(dataDest - '0') == node_id && line_number[11] == 'b')
+    if (unsigned(dataDest - '0') == node_id && line_number[11] == 'S')
     {
         string message = line_number.erase(0, 17);
         stream.got_view << "MESSAGE FROM  " << dataSrc << " TO " << dataDest << " : " << message << endl;
     }
     else
     {
-        if (line_number[11] == 'b')
+        if (line_number[11] == 'S')
         {
             string message = line_number.erase(0, 17);
             string intermediateNode = "";
